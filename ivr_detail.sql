@@ -1,5 +1,4 @@
-CREATE OR REPLACE TABLE keepcoding.ivr_detail
-AS
+CREATE OR REPLACE TABLE keepcoding.ivr_detail AS
 SELECT calls.ivr_id AS calls_ivr_id,
        calls.phone_number AS calls_phone_number,
        calls.ivr_result AS calls_ivr_result,
@@ -30,4 +29,4 @@ SELECT calls.ivr_id AS calls_ivr_id,
     ON calls.ivr_id = modules.ivr_id
   JOIN keepcoding.ivr_steps AS steps
     ON modules.ivr_id = steps.ivr_id 
-   AND modules.module_sequece = steps.module_sequece
+   AND modules.module_sequece = steps.module_sequece;

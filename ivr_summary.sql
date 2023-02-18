@@ -1,19 +1,18 @@
-CREATE OR REPLACE TABLE keepcoding.ivr_summary 
-AS
-  WITH calls_documents 
-       -- Get unique document type and document identification by call
-    AS (
-          SELECT calls_ivr_id, 
-                 document_type, 
-                 document_identification
-            FROM keepcoding.ivr_detail
-           WHERE document_type <> "NULL" OR document_identification <> "NULL"
-        GROUP BY calls_ivr_id, 
-                 document_type, 
-                 document_identification
-         QUALIFY ROW_NUMBER() OVER(PARTITION BY CAST(calls_ivr_id AS STRING) 
-                                       ORDER BY NULLIF(document_type, "NULL") ASC NULLS LAST) = 1
-    )
+CREATE OR REPLACE TABLE keepcoding.ivr_summary AS
+WITH calls_documents 
+-- Get unique document type and document identification by call
+AS (
+      SELECT calls_ivr_id, 
+             document_type, 
+             document_identification
+        FROM keepcoding.ivr_detail
+       WHERE document_type <> "NULL" OR document_identification <> "NULL"
+    GROUP BY calls_ivr_id, 
+             document_type, 
+             document_identification
+     QUALIFY ROW_NUMBER() OVER(PARTITION BY CAST(calls_ivr_id AS STRING) 
+                                   ORDER BY NULLIF(document_type, "NULL") ASC NULLS LAST) = 1
+   )
 
   SELECT ivr_detail.calls_ivr_id AS ivr_id,
          ivr_detail.calls_phone_number AS phone_number,
@@ -34,29 +33,29 @@ AS
          IFNULL(calls_documents.document_identification, "NULL") AS document_identification,
          IFNULL(MIN(NULLIF(ivr_detail.customer_phone, "NULL")), "NULL") AS customer_phone,
          IFNULL(MIN(NULLIF(ivr_detail.billing_account_id, "NULL")), "NULL") AS billing_account_id,
-        
+
          -- Flag if call goes through "AVERIA_MASIVA" module
          IF(COUNTIF(ivr_detail.module_name = "AVERIA_MASIVA") > 0, 1, 0) AS masiva_lg,
-        
+
          -- Flag if client has been identified by phone
          COUNTIF(ivr_detail.step_name = "CUSTOMERINFOBYPHONE.TX" 
                  AND ivr_detail.step_description_error = "NULL") AS info_by_phone_lg,
-        
+
          -- Flag if client has been identified by identity document
          COUNTIF(ivr_detail.step_name = "CUSTOMERINFOBYDNI.TX" 
                  AND ivr_detail.step_description_error = "NULL") AS info_by_dni_lg,
-        
+
          -- Flag if the previous call was made within the previous 24 hours
          IF(TIMESTAMP_DIFF(ivr_detail.calls_start_date, 
                            LAG(ivr_detail.calls_start_date)
-                              OVER (PARTITION BY ivr_detail.calls_phone_number 
-                                        ORDER BY ivr_detail.calls_start_date ASC), 
+                             OVER (PARTITION BY ivr_detail.calls_phone_number 
+                                       ORDER BY ivr_detail.calls_start_date ASC), 
                            SECOND) <= 86400, 1, 0) AS repeated_phone_24H,
-        
+
          -- Flag if the following call was made within the next 24 hours
          IF(TIMESTAMP_DIFF(LEAD(ivr_detail.calls_start_date)
-                              OVER (PARTITION BY ivr_detail.calls_phone_number 
-                                        ORDER BY ivr_detail.calls_start_date ASC),
+                             OVER (PARTITION BY ivr_detail.calls_phone_number 
+                                       ORDER BY ivr_detail.calls_start_date ASC),
                            ivr_detail.calls_start_date, 
                            SECOND) <= 86400, 1, 0) AS cause_recall_phone_24H
     FROM keepcoding.ivr_detail
@@ -75,5 +74,4 @@ GROUP BY ivr_id,
          steps_module,
          module_aggregation,
          document_type,
-         document_identification
-
+         document_identification;
